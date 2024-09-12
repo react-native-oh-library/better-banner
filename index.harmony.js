@@ -177,8 +177,8 @@ export default class BetterBanner extends PureComponent {
     }
 
     setActiveIndicatorX(x) {
-        x = this.props.isSeamlessScroll ? (x - this.activeIndicatorX) : x;
-        x = Platform.OS === 'ios' ? x - this.props.indicatorGap / 2 : x;
+        x = this.props.isSeamlessScroll ? x - this.activeIndicatorX - this.props.indicatorGap / 2 : x;
+        x = (Platform.OS === 'harmony' && this.nextPage === 1) ? x + this.props.indicatorGap / 2 : x;
         this.activeIndicator.setNativeProps({style: {left: x}})
     }
 
