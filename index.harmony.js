@@ -102,14 +102,14 @@ export default class BetterBanner extends PureComponent {
         }
         if (this.isInitScroll) {
             this.scrollTo(width, false);
-            this.setBannerTitleText(32)
+            this.setBannerTitleText(this.props.indicatorContainerHeight || 32)
         } else if (this.isPageScrollEnd()) {
             this.initNextPage();
             let showAnim = this.props.adaptSeamlessScrollValue;
             // let showAnim = Platform.OS === 'android'; // 兼容问题
             this.scrollTo(width * this.nextPage, showAnim);
             this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
-            this.setBannerTitleText(32 * this.nextPage)
+            this.setBannerTitleText((this.props.indicatorContainerHeight || 32) * this.nextPage)
         }
     }
 
@@ -202,11 +202,11 @@ export default class BetterBanner extends PureComponent {
         //指示器滚动效果--自动滚动
         if (this.isAutoScroll) {
             indicatorX = this.initActiveIndicatorX + this.nextPage * this.activeIndicatorX;
-            bannerContentY = this.nextPage * 32
+            bannerContentY = this.nextPage * (this.props.indicatorContainerHeight || 32)
         } else {
             //指示器滚动效果--手动滑动
             indicatorX = this.initActiveIndicatorX + this.nextPagePixel * this.activeIndicatorX;
-            bannerContentY = this.nextPagePixel * 32
+            bannerContentY = this.nextPagePixel * (this.props.indicatorContainerHeight || 32)
         }
         this.setBannerTitleText(bannerContentY);
         if (this.isIndicatorScrollEnd()) {
