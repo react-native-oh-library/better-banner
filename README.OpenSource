@@ -1,0 +1,11 @@
+[
+    {
+        "Name": "react-native-better-banner",
+        "License": "MIT License",
+        "License File": "https://github.com/tmxiong/better-banner/blob/main/LICENSE",
+        "Version Number": "0.0.1",
+        "Owner" : "xiafeng@huawei.com",
+        "Upstream URL": "https://github.com/tmxiong/better-banner",
+        "Description": "better-banner library for react-native"
+    }
+]
