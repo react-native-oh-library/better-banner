@@ -91,7 +91,9 @@ export default class BetterBanner extends PureComponent {
         if (this.nextPage === 1) {
             this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
         }
-        this.startAutoScroll();
+        if (this.isAutoScroll) {
+            this.startAutoScroll();
+        }
     }
 
     componentWillUnmount() {
@@ -125,7 +127,11 @@ export default class BetterBanner extends PureComponent {
     }
 
     initNextPage() {
-        this.nextPage = this.nextPage === 0 ? this.bannerView.length - 2 : 1;
+        if (this.nextPage === 0) {
+            this.nextPage = this.bannerView.length - 2;
+        } else if (this.nextPage === this.bannerView.length - 1) {
+            this.nextPage = 1;
+        }
     }
 
     scrollTo(x, showAnim = true) {
@@ -180,9 +186,29 @@ export default class BetterBanner extends PureComponent {
     }
 
     setActiveIndicatorX(x) {
-        x = this.props.isSeamlessScroll ? x - this.activeIndicatorX - this.props.indicatorGap / 2 : x;
-        x = (Platform.OS === 'harmony' && this.nextPage === 1) ? x + this.props.indicatorGap / 2 : x;
-        this.activeIndicator.setNativeProps({style: {left: x,zIndex: 1}}) //harmony os 有层级问题
+        const { isSeamlessScroll, indicatorGap, indicatorWidth } = this.props;
+        let adjustedX = x;
+        const activeIndicatorXValue = indicatorWidth + indicatorGap;
+        if (isSeamlessScroll) {
+            // 无缝滚动
+            adjustedX = x - activeIndicatorXValue - indicatorGap / 2;
+        } else {
+            if (this.isInitScroll) {
+                adjustedX = 0;
+                this.isInitScroll = false;
+            } else if (this.initActiveIndicatorX !== null) {
+                adjustedX = x - this.initActiveIndicatorX;
+                const expectedPosition = Math.round(adjustedX / activeIndicatorXValue) * activeIndicatorXValue;
+                if (Math.abs(adjustedX - expectedPosition) > 1) {
+                    adjustedX = expectedPosition;
+                }
+            }
+        }
+        if (Platform.OS === 'harmony' && this.nextPage === 1) {
+            adjustedX = adjustedX + indicatorGap / 2;
+        }
+
+        this.activeIndicator.setNativeProps({ style: { left: adjustedX, zIndex: 1 } });
     }
 
     setBannerTitleText(y) {
@@ -237,7 +263,9 @@ export default class BetterBanner extends PureComponent {
                 }
             }, 100)
         }
-        this.startAutoScroll();
+        if (this.isAutoScroll) {
+            this.startAutoScroll();
+        }
     }
 
     startAutoScroll() {
@@ -247,7 +275,9 @@ export default class BetterBanner extends PureComponent {
         this.scrollTimer && clearInterval(this.scrollTimer);
         this.animTimer && clearTimeout(this.animTimer);
 
-        this.isAutoScroll = true;
+       if(!this.isAutoScroll){
+        return
+       }
         this.scrollTimer = setInterval(() => {
             // console.warn('nextPage', this.nextPage);
             this.scrollTo(this.nextPage * width);
@@ -259,7 +289,10 @@ export default class BetterBanner extends PureComponent {
                         this.scrollTo(width * this.nextPage, false);
                         this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
                     } else {
-                        this.nextPage = 0;
+                        this.scrollTimer && clearInterval(this.scrollTimer);
+                        this.animTimer && clearTimeout(this.animTimer);
+                        this.nextPage = this.bannerView.length - 1;
+                        return;
                     }
                 }
             }, 500)
@@ -269,7 +302,9 @@ export default class BetterBanner extends PureComponent {
 
     onMomentumScrollEnd(event) {
         // console.warn(event.nativeEvent.contentOffset.x);
-        this.startAutoScroll();
+        if (this.isAutoScroll) {
+            this.startAutoScroll();
+        }
         this.initScroll();
         this.props.onScrollEnd(event);
     }
