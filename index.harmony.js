@@ -61,17 +61,21 @@ export default class BetterBanner extends PureComponent {
         indicatorStyle.paddingTop = 0;
         indicatorStyle.paddingRight = 0;
 
-        this.state = {};
+        this.state = {
+            layoutWidth: width,
+        };
         this.currentBannerData = [];
         this.offsetX = 0;
-        this.nextPage = 1;
+        this.nextPage = 0;
         this.isAutoScroll = props.isAutoScroll;
         // 活动指示器初始值
-        this.initActiveIndicatorX = null;
+        this.initActiveIndicatorX = 0;
         // 每翻一页，指示器滚动的距离
         this.activeIndicatorX = props.indicatorWidth + props.indicatorGap;
 
-        this.bannerView = this.getBannerView();
+        this.bannerView = this.getBannerView(this.state.layoutWidth);
+        // 非无缝：从第 0 页开始；无缝且数据>1：从第 1 页开始（第 0 页是“尾巴”占位）
+        this.nextPage = props.isSeamlessScroll && this.currentBannerData.length > 1 ? 1 : 0;
         this.isInitScroll = true;
 
         this.indicatorStyle = {
@@ -79,8 +83,8 @@ export default class BetterBanner extends PureComponent {
             width: indicatorWidth,
             height: indicatorHeight,
             borderRadius: indicatorHeight,
-            marginLeft: indicatorGap / 2,
-            marginRight: indicatorGap / 2,
+            marginLeft: 0,
+            marginRight: 0,
 
         }
     };
@@ -88,10 +92,10 @@ export default class BetterBanner extends PureComponent {
     componentDidMount() {
         this.isInitScroll = true;
         setTimeout(() => this.initScroll(), 0);
-        if (this.nextPage === 1) {
-            this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
+        this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
+        if (this.props.isAutoScroll) {
+            this.startAutoScroll();
         }
-        this.startAutoScroll();
     }
 
     componentWillUnmount() {
@@ -99,18 +103,37 @@ export default class BetterBanner extends PureComponent {
         this.animTimer && clearTimeout(this.animTimer);
     }
 
+    stopAutoScroll() {
+        this.scrollTimer && clearInterval(this.scrollTimer);
+        this.animTimer && clearTimeout(this.animTimer);
+        this.scrollTimer = null;
+        this.animTimer = null;
+    }
+
+    onContainerLayout(event) {
+        const nextWidth = Math.round(event?.nativeEvent?.layout?.width || width);
+        if (!nextWidth || nextWidth === this.state.layoutWidth) {
+            return;
+        }
+        this.setState({layoutWidth: nextWidth}, () => {
+            // 让无缝初始化在真实宽度下生效，避免边框场景下的溢出/错位
+            this.initScroll();
+        });
+    }
+
     initScroll() {
+        const layoutWidth = this.state.layoutWidth || width;
         if (!this.props.isSeamlessScroll || this.currentBannerData.length < 2) {
             return;
         }
         if (this.isInitScroll) {
-            this.scrollTo(width, false);
+            this.scrollTo(layoutWidth, false);
             this.setBannerTitleText(this.props.indicatorContainerHeight || 32)
         } else if (this.isPageScrollEnd()) {
             this.initNextPage();
             let showAnim = this.props.adaptSeamlessScrollValue;
             // let showAnim = Platform.OS === 'android'; // 兼容问题
-            this.scrollTo(width * this.nextPage, showAnim);
+            this.scrollTo(layoutWidth * this.nextPage, showAnim);
             this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
             this.setBannerTitleText((this.props.indicatorContainerHeight || 32) * this.nextPage)
         }
@@ -132,7 +155,7 @@ export default class BetterBanner extends PureComponent {
         this.scrollView.scrollTo({x: x, animated: showAnim});
     }
 
-    getBannerView() {
+    getBannerView(bannerWidth = width) {
         const {bannerImages, bannerComponents, isSeamlessScroll} = this.props;
         let _bannerView = [];
         let _bannerList = [];
@@ -159,14 +182,14 @@ export default class BetterBanner extends PureComponent {
         for (let i = 0; i < _bannerList.length; i++) {
             _bannerView.push(
                 <TouchableOpacity
-                    style={styles.bannerContent}
+                    style={[styles.bannerContent, {width: bannerWidth}]}
                     key={i}
                     activeOpacity={1}
                     onPress={() => this.props.onPress(isSeamlessScroll ? i - 1 : i)}>
                     {
                         isSwitchBannerImages
                             ?
-                            <Image style={[styles.imageStyle, {height: this.props.bannerHeight}]}
+                            <Image style={[styles.imageStyle, {width: bannerWidth, height: this.props.bannerHeight}]}
                                    source={_bannerList[i]}/>
                             :
                             _bannerList[i]
@@ -180,9 +203,8 @@ export default class BetterBanner extends PureComponent {
     }
 
     setActiveIndicatorX(x) {
-        x = this.props.isSeamlessScroll ? x - this.activeIndicatorX - this.props.indicatorGap / 2 : x;
-        x = (Platform.OS === 'harmony' && this.nextPage === 1) ? x + this.props.indicatorGap / 2 : x;
-        this.activeIndicator.setNativeProps({style: {left: x,zIndex: 1}}) //harmony os 有层级问题
+        x = this.props.isSeamlessScroll ? x - this.activeIndicatorX : x;
+        this.activeIndicator.setNativeProps({style: {left: x, zIndex: 1}}) //harmony os 有层级问题
     }
 
     setBannerTitleText(y) {
@@ -191,13 +213,14 @@ export default class BetterBanner extends PureComponent {
     }
 
     onScroll(event) {
+        const layoutWidth = this.state.layoutWidth || width;
         if (this.isInitScroll) {
             this.isInitScroll = false;
             return;
         }
         this.offsetX = event.nativeEvent.contentOffset.x;
-        this.nextPage = Math.round(this.offsetX / width);
-        this.nextPagePixel = this.offsetX / width;
+        this.nextPage = Math.round(this.offsetX / layoutWidth);
+        this.nextPagePixel = this.offsetX / layoutWidth;
 
 
         let indicatorX = 0;
@@ -213,7 +236,7 @@ export default class BetterBanner extends PureComponent {
         }
         this.setBannerTitleText(bannerContentY);
         if (this.isIndicatorScrollEnd()) {
-            this.initActiveIndicatorX = null //最后一张返回第一张的时候这个值要初始化
+            this.initActiveIndicatorX = 0 //最后一张返回第一张的时候这个值要初始化
             return;
         }
         this.setActiveIndicatorX(indicatorX);
@@ -230,38 +253,67 @@ export default class BetterBanner extends PureComponent {
     onTouchEnd() {
         // 解决 安卓滑到中间松开手势会停止滚动
         if (Platform.OS === 'android') {
+            const layoutWidth = this.state.layoutWidth || width;
             let offsetx1 = this.offsetX;
             setTimeout(() => {
                 if (offsetx1 === this.offsetX) {
-                    this.scrollTo(this.nextPage * width);
+                    this.scrollTo(this.nextPage * layoutWidth);
                 }
             }, 100)
         }
-        this.startAutoScroll();
+        if (this.props.isAutoScroll) {
+            this.startAutoScroll();
+        }
     }
 
     startAutoScroll() {
+        const layoutWidth = this.state.layoutWidth || width;
+        if (!this.props.isAutoScroll) {
+            return;
+        }
         if (this.currentBannerData.length < 2) {
             return;
         }
-        this.scrollTimer && clearInterval(this.scrollTimer);
-        this.animTimer && clearTimeout(this.animTimer);
+        this.stopAutoScroll();
+
+        const pageCountAtStart = Array.isArray(this.bannerView) ? this.bannerView.length : 0;
+        if (pageCountAtStart < 2) {
+            return;
+        }
+        // 非无缝：到末页后应停住，不回绕到第一页
+        if (!this.props.isSeamlessScroll && this.nextPage >= pageCountAtStart - 1) {
+            return;
+        }
 
         this.isAutoScroll = true;
         this.scrollTimer = setInterval(() => {
-            // console.warn('nextPage', this.nextPage);
-            this.scrollTo(this.nextPage * width);
+            const pageCount = Array.isArray(this.bannerView) ? this.bannerView.length : 0;
+            if (pageCount < 2) {
+                return;
+            }
+
+            // 非无缝：到末页后停止，不回到第一页
+            if (!this.props.isSeamlessScroll && this.nextPage >= pageCount - 1) {
+                this.stopAutoScroll();
+                return;
+            }
+
+            // 无缝模式下，最后一个是“头部占位”，到达后需要回到第 1 页
+            if (this.props.isSeamlessScroll && this.currentBannerData.length > 1 && this.nextPage >= pageCount - 1) {
+                this.nextPage = 1;
+                this.scrollTo(layoutWidth * this.nextPage, false);
+                this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
+            }
+
+            let targetPage = this.nextPage + 1;
+            // 只有无缝模式才会自然循环；非无缝在上面已停止
+            if (targetPage >= pageCount) {
+                targetPage = pageCount - 1;
+            }
+
+            this.scrollTo(targetPage * layoutWidth);
             this.animTimer = setTimeout(() => {
-                this.nextPage++;
-                if (this.nextPage >= this.bannerView.length) {
-                    if (this.props.isSeamlessScroll) {
-                        this.nextPage = 1;
-                        this.scrollTo(width * this.nextPage, false);
-                        this.setActiveIndicatorX(this.activeIndicatorX * this.nextPage);
-                    } else {
-                        this.nextPage = 0;
-                    }
-                }
+                this.nextPage = targetPage;
             }, 500)
 
         }, this.props.scrollInterval);
@@ -269,7 +321,9 @@ export default class BetterBanner extends PureComponent {
 
     onMomentumScrollEnd(event) {
         // console.warn(event.nativeEvent.contentOffset.x);
-        this.startAutoScroll();
+        if (this.props.isAutoScroll) {
+            this.startAutoScroll();
+        }
         this.initScroll();
         this.props.onScrollEnd(event);
     }
@@ -285,12 +339,6 @@ export default class BetterBanner extends PureComponent {
             ref={(ref) => {
                 this.activeIndicator = ref
             }}
-            // 测算左边距长度
-            onLayout={() => this.activeIndicator.measure((x, y, width, height, pageX, pageY) => {
-                if (!this.initActiveIndicatorX) {
-                    this.initActiveIndicatorX = x;
-                }
-            })}
         />);
     }
 
@@ -298,12 +346,24 @@ export default class BetterBanner extends PureComponent {
         let points = [];
         let {length} = this.currentBannerData;
         for (let i = 0; i < length; i++) {
-            points.push(<View key={i} style={[this.indicatorStyle, {backgroundColor: this.props.indicatorColor}]}/>)
+            points.push(
+                <View
+                    key={i}
+                    style={[
+                        this.indicatorStyle,
+                        {
+                            backgroundColor: this.props.indicatorColor,
+                            marginRight: i === length - 1 ? 0 : this.props.indicatorGap,
+                        },
+                    ]}
+                />,
+            )
         }
         return points;
     }
 
     renderBannerTitle() {
+        const layoutWidth = this.state.layoutWidth || width;
         let {bannerTitles, bannerTitleTextColor, isSeamlessScroll, indicatorGroupSideOffset, indicatorContainerHeight, indicatorWidth, indicatorGap} = this.props;
         let currentBannerTitles = JSON.parse(JSON.stringify(bannerTitles));
         let currentIndicatorWidth = this.indicatorStyle.width || indicatorWidth;
@@ -316,7 +376,7 @@ export default class BetterBanner extends PureComponent {
                 return <Text key={index} numberOfLines={1}
                              style={[styles.bannerTitleText,
                                  {lineHeight: indicatorContainerHeight, color: bannerTitleTextColor},
-                                 {width: width - indicatorGroupSideOffset * 2 - this.currentBannerData.length * (currentIndicatorWidth + indicatorGap) - 10}]}>{item}</Text>
+                                 {width: layoutWidth - indicatorGroupSideOffset * 2 - this.currentBannerData.length * (currentIndicatorWidth + indicatorGap) - 10}]}>{item}</Text>
             });
             return <View ref={ref => this.bannerTitleContent = ref}>{bannerTitleView}</View>
         } else {
@@ -325,27 +385,19 @@ export default class BetterBanner extends PureComponent {
     }
 
     getIndicatorGroupPosition() {
-        const {indicatorGroupPosition, bannerTitles} = this.props;
+        const {indicatorGroupPosition} = this.props;
         let p_style = {
             alignSelf: 'flex-end',
         };
 
-        if(bannerTitles.length === 0) {
-            if (indicatorGroupPosition === "left") {
-
-                p_style.alignSelf = 'flex-start'
-
-            } else if (indicatorGroupPosition === "right") {
-
-                p_style.alignSelf = 'flex-end'
-
-            } else if (indicatorGroupPosition === "center") {
-
-                p_style.alignSelf = 'center'
-
-            } else {
-                console.warn("indicatorGroupPosition value error, the value must one of 'left', 'right' or 'center'");
-            }
+        if (indicatorGroupPosition === "left") {
+            p_style.alignSelf = 'flex-start'
+        } else if (indicatorGroupPosition === "right") {
+            p_style.alignSelf = 'flex-end'
+        } else if (indicatorGroupPosition === "center") {
+            p_style.alignSelf = 'center'
+        } else {
+            console.warn("indicatorGroupPosition value error, the value must one of 'left', 'right' or 'center'");
         }
 
 
@@ -353,6 +405,10 @@ export default class BetterBanner extends PureComponent {
     }
 
     render() {
+        const {layoutWidth} = this.state;
+        const resolvedWidth = layoutWidth || width;
+        const bannerView = this.getBannerView(resolvedWidth);
+        this.bannerView = bannerView;
         const {bannerHeight, indicatorGroupSideOffset, indicatorContainerHeight, indicatorContainerBackgroundColor} = this.props
         return (
             this.currentBannerData.length === 0
@@ -361,7 +417,7 @@ export default class BetterBanner extends PureComponent {
                     <Text style={{color: '#fff', fontSize: 14}}>Please add</Text>
                     <Text style={{color: '#fff', fontSize: 14}}>bannerComponents or bannerImages</Text>
                 </View>
-                : <View style={[styles.container, {height: bannerHeight}]}>
+                : <View style={[styles.container, {height: bannerHeight, width: '100%'}]} onLayout={this.onContainerLayout.bind(this)}> 
                     <ScrollView
                         horizontal={true}
                         showsHorizontalScrollIndicator={false}
@@ -373,10 +429,11 @@ export default class BetterBanner extends PureComponent {
                         onMomentumScrollEnd={this.onMomentumScrollEnd.bind(this)} // 滚动动画结束时调用
                         ref={(ref) => this.scrollView = ref}
                     >
-                        {this.bannerView}
+                        {bannerView}
                     </ScrollView>
                     <View
                         style={[styles.indicatorContainer, {
+                            width: '100%',
                             paddingLeft: indicatorGroupSideOffset,
                             paddingRight: indicatorGroupSideOffset,
                             height: indicatorContainerHeight,
@@ -404,7 +461,7 @@ export default class BetterBanner extends PureComponent {
 const styles = StyleSheet.create({
 
     container: {
-        width: width,
+        width: '100%',
     },
     noDataContainer: {
         backgroundColor:'#1997fc',
@@ -433,7 +490,7 @@ const styles = StyleSheet.create({
 
     indicatorContainer: {
         position: 'absolute',
-        width: width,
+        width: '100%',
         bottom: 0,
         justifyContent: 'center'
     },
