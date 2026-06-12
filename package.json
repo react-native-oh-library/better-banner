@@ -1,7 +1,7 @@
 {
   "name": "@react-native-ohos/react-native-better-banner",
   "version": "1.1.4",
-  "private": true,
+  "private": false,
   "scripts": {
     "start": "react-native start",
     "test": "jest"
