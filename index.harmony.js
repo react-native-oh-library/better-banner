@@ -276,25 +276,10 @@ export default class BetterBanner extends PureComponent {
         }
         this.stopAutoScroll();
 
-        const pageCountAtStart = Array.isArray(this.bannerView) ? this.bannerView.length : 0;
-        if (pageCountAtStart < 2) {
-            return;
-        }
-        // 非无缝：到末页后应停住，不回绕到第一页
-        if (!this.props.isSeamlessScroll && this.nextPage >= pageCountAtStart - 1) {
-            return;
-        }
-
         this.isAutoScroll = true;
         this.scrollTimer = setInterval(() => {
             const pageCount = Array.isArray(this.bannerView) ? this.bannerView.length : 0;
             if (pageCount < 2) {
-                return;
-            }
-
-            // 非无缝：到末页后停止，不回到第一页
-            if (!this.props.isSeamlessScroll && this.nextPage >= pageCount - 1) {
-                this.stopAutoScroll();
                 return;
             }
 
@@ -306,9 +291,9 @@ export default class BetterBanner extends PureComponent {
             }
 
             let targetPage = this.nextPage + 1;
-            // 只有无缝模式才会自然循环；非无缝在上面已停止
+            // 与上游一致：非无缝越过末页后回到第一页循环
             if (targetPage >= pageCount) {
-                targetPage = pageCount - 1;
+                targetPage = 0;
             }
 
             this.scrollTo(targetPage * layoutWidth);
@@ -364,7 +349,7 @@ export default class BetterBanner extends PureComponent {
 
     renderBannerTitle() {
         const layoutWidth = this.state.layoutWidth || width;
-        let {bannerTitles, bannerTitleTextColor, isSeamlessScroll, indicatorGroupSideOffset, indicatorContainerHeight, indicatorWidth, indicatorGap} = this.props;
+        let {bannerTitles, bannerTitleTextColor, bannerTitleTextSize, isSeamlessScroll, indicatorGroupSideOffset, indicatorContainerHeight, indicatorWidth, indicatorGap} = this.props;
         let currentBannerTitles = JSON.parse(JSON.stringify(bannerTitles));
         let currentIndicatorWidth = this.indicatorStyle.width || indicatorWidth;
         if (bannerTitles.length > 0) {
@@ -375,7 +360,7 @@ export default class BetterBanner extends PureComponent {
             let bannerTitleView = currentBannerTitles.map((item, index) => {
                 return <Text key={index} numberOfLines={1}
                              style={[styles.bannerTitleText,
-                                 {lineHeight: indicatorContainerHeight, color: bannerTitleTextColor},
+                                 {lineHeight: indicatorContainerHeight, color: bannerTitleTextColor, fontSize: bannerTitleTextSize},
                                  {width: layoutWidth - indicatorGroupSideOffset * 2 - this.currentBannerData.length * (currentIndicatorWidth + indicatorGap) - 10}]}>{item}</Text>
             });
             return <View ref={ref => this.bannerTitleContent = ref}>{bannerTitleView}</View>
@@ -385,19 +370,21 @@ export default class BetterBanner extends PureComponent {
     }
 
     getIndicatorGroupPosition() {
-        const {indicatorGroupPosition} = this.props;
+        const {indicatorGroupPosition, bannerTitles} = this.props;
         let p_style = {
             alignSelf: 'flex-end',
         };
 
-        if (indicatorGroupPosition === "left") {
-            p_style.alignSelf = 'flex-start'
-        } else if (indicatorGroupPosition === "right") {
-            p_style.alignSelf = 'flex-end'
-        } else if (indicatorGroupPosition === "center") {
-            p_style.alignSelf = 'center'
-        } else {
-            console.warn("indicatorGroupPosition value error, the value must one of 'left', 'right' or 'center'");
+        if (bannerTitles.length === 0) {
+            if (indicatorGroupPosition === "left") {
+                p_style.alignSelf = 'flex-start'
+            } else if (indicatorGroupPosition === "right") {
+                p_style.alignSelf = 'flex-end'
+            } else if (indicatorGroupPosition === "center") {
+                p_style.alignSelf = 'center'
+            } else {
+                console.warn("indicatorGroupPosition value error, the value must one of 'left', 'right' or 'center'");
+            }
         }
 
 

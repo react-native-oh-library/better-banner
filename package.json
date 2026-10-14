@@ -1,11 +1,19 @@
 {
   "name": "@react-native-ohos/react-native-better-banner",
-  "version": "1.2.0",
+  "version": "1.2.1-beta.1",
   "private": true,
   "scripts": {
     "start": "react-native start",
     "test": "jest"
   },
+  "files": [
+    "harmony",
+    "src",
+	"CHANGELOG.md",
+	"index.js", 
+	"index.harmony.js",
+	"package.json"
+  ],
   "dependencies": {
     "react": "16.8.6",
     "react-native": "0.60.5",
