@@ -1,4 +1,4 @@
-# @react-native-oh-tpl/better-banner
+# @react-native-ohos/better-banner
 
 This project is based on [better-banner](https://github.com/tmxiong/better-banner)
 
